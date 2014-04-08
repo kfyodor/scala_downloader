@@ -1,55 +1,61 @@
 package com.konukhov.downloader
 
+import java.io.{ 
+  File, 
+  FileOutputStream, 
+  FileInputStream 
+}
 import scala.language.implicitConversions
-import scala.annotation.tailrec
-import java.io.{ File, FileOutputStream }
 import java.net.URL
-
-import scala.Stream._
+import java.io.InputStream
 
 // TODO: handle exceptions and stuff
 // TODO: use Option[_] type
 
+case class Chunk(length: Int, bytes: Array[Byte])
+
 class Downloader(val options: Map[String, Object]) {
   implicit def strToFile(s: String) = new File(s)
 
-  val fileUrl         = options("fileUrl").asInstanceOf[String]
-  val genericFileName = fileUrl.split("/").reverse.head
-  val stream          = new URL(fileUrl).openStream
+  var downloaded = 0
+  val fileUrl = options("fileUrl").asInstanceOf[String]
 
-  lazy val fileName   = setFileName(genericFileName, 0)
+  private val nameBuilder = FileNameBuilder.fromUrlString(fileUrl)
 
-  def download(): Unit = {
-    val tempfile = new FileOutputStream(tempfileName)
+  val fileName     = nameBuilder.fileName
+  val tempfileName = nameBuilder.tempfileName
+  val tempfile     = new FileOutputStream(tempfileName)
+
+  def byteStream(input: InputStream): Stream[Chunk] = {
+    val bytes = Array.fill[Byte](1024)(0)  
+    val length = input.read(bytes)
+    Chunk(length, bytes) #:: byteStream(input)
+  }
+
+  def readBytes(input: InputStream)(func: Chunk => Unit) = {
+    byteStream(input) takeWhile { chunk => chunk.length > 0 } foreach func
+  }
+
+  def logProgress(chunk: Chunk, length: Int) = {
+    downloaded += chunk.length
+    print("\r")
+    print(s"Downloading $fileName: " + s"%1.00f".format((downloaded.toFloat / length) * 100) + "%")
+  }
+
+  def download() = {
+    val conn   = new URL(fileUrl).openConnection
+    val length = conn.getContentLength
+    val in     = conn.getInputStream
     
-    Stream.continually(stream.read).takeWhile(_ != -1) foreach { chunk => 
-      println(".")
-      tempfile.write(chunk.toByte)
-    }
-    tempfile.close
-
-    tempfileName renameTo fileName
-  }
-
-
-  // TODO: move file name logic to a class
-  @tailrec
-  private def setFileName(name: String, i: Int): String = {
-    if (new File(s"./downloads/$name").exists) {
-      val j = i + 1
-      val possibleName = possibleFileName(genericFileName, j)
-      setFileName(possibleName, j)
-    } else {
-      s"./downloads/$name"
+    try {
+      readBytes(in) { chunk => 
+        logProgress(chunk, length)
+        tempfile write chunk.bytes 
+      }
+      tempfileName renameTo fileName
+    } finally {
+      in.close
+      tempfile.close
     }
   }
-
-  private def possibleFileName(name: String, i: Int) = {
-    val pattern = """^(.+?)(\.[A-Za-z]+)?$""".r
-    (pattern findFirstMatchIn name).map { m => 
-      m.group(1) + s" ($i)" + m.group(2) 
-    } getOrElse name
-  }
-
-  private def tempfileName():String = s"$fileName.download"
 }

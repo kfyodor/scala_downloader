@@ -3,5 +3,5 @@ package com.konukhov.downloader
 
 object Server extends App {
   val options = OptionsParser(args)
-  new Downloader(options).download() 
+  new Downloader(options).download
 }
