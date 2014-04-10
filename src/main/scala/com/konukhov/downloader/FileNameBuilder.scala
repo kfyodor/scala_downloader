@@ -1,35 +1,47 @@
 package com.konukhov.downloader
 
-import scala.annotation.tailrec
 import java.io.File
-
-// TODO: url-escaped names
+import java.net.URLDecoder
+import scala.annotation.tailrec
 
 class FileNameBuilder(url: String) {
-  private val genericFileName = url.split("/").reverse.head
 
-  lazy val fileName     = setFileName(genericFileName, 0)
-  lazy val tempfileName = setTempfileName()
+  case class NameWithCounter(name: String, counter: Int = 0) {
+    def tryNext = NameWithCounter(name, counter + 1)
 
-  @tailrec
-  private def setFileName(name: String, i: Int): String = {
+    override def toString = counter match {
+      case 0 => name
+      case _ => asStringWithCounter
+    }
+
+    private[this] def asStringWithCounter = {
+      val namePattern = """^(.+?)(\.[A-Za-z]+)?$""".r
+      val findName    = namePattern findFirstMatchIn name
+
+      findName map { m => 
+        m.group(1) + s" ($counter)" + m.group(2)
+      } getOrElse name
+    }
+  }
+
+  private[this] lazy val genericFileName = {
+    NameWithCounter(URLDecoder.decode(url.split("/").last, "UTF-8"))
+  }
+
+  lazy val fileName     = setFileName(genericFileName)
+  lazy val tempfileName = setTempfileName
+
+  @tailrec 
+  private[this] def setFileName(name: NameWithCounter): String = {
     if (new File(s"./downloads/$name").exists) {
-      val j = i + 1
-      val possibleName = possibleFileName(genericFileName, j)
-      setFileName(possibleName, j)
+      setFileName(name.tryNext)
     } else {
       s"./downloads/$name"
     }
   }
 
-  private def possibleFileName(name: String, i: Int) = {
-    val pattern = """^(.+?)(\.[A-Za-z]+)?$""".r
-    (pattern findFirstMatchIn name).map { m => 
-      m.group(1) + s" ($i)" + m.group(2) 
-    } getOrElse name
-  }
+  private[this] def setTempfileName = s"$fileName.download"
 
-  private def setTempfileName():String = s"$fileName.download"
 }
 
 object FileNameBuilder {

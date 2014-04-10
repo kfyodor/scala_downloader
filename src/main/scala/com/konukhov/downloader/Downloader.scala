@@ -1,45 +1,41 @@
 package com.konukhov.downloader
 
-import java.io.{ 
-  File, 
-  FileOutputStream, 
-  FileInputStream 
-}
-import scala.language.implicitConversions
+import java.io.{ File, FileOutputStream, InputStream }
 import java.net.URL
-import java.io.InputStream
+import scala.language.implicitConversions
 
 // TODO: handle exceptions and stuff
 // TODO: use Option[_] type
 
-case class Chunk(length: Int, bytes: Array[Byte])
-
 class Downloader(val options: Map[String, Object]) {
   implicit def strToFile(s: String) = new File(s)
+  case class Chunk(length: Int, bytes: Array[Byte])
 
-  var downloaded = 0
+  var downloadedBytes = 0
   val fileUrl = options("fileUrl").asInstanceOf[String]
 
-  private val nameBuilder = FileNameBuilder.fromUrlString(fileUrl)
+  private[this] 
+  val nameBuilder = FileNameBuilder.fromUrlString(fileUrl)
 
   val fileName     = nameBuilder.fileName
   val tempfileName = nameBuilder.tempfileName
   val tempfile     = new FileOutputStream(tempfileName)
 
   def byteStream(input: InputStream): Stream[Chunk] = {
-    val bytes = Array.fill[Byte](1024)(0)  
+    val bytes  = Array.fill[Byte](1024)(0)  
     val length = input.read(bytes)
     Chunk(length, bytes) #:: byteStream(input)
   }
 
-  def readBytes(input: InputStream)(func: Chunk => Unit) = {
+  def readBytes(input: InputStream)(func: Chunk => Unit) {
     byteStream(input) takeWhile { chunk => chunk.length > 0 } foreach func
   }
 
-  def logProgress(chunk: Chunk, length: Int) = {
-    downloaded += chunk.length
+  // Move to log class or trait
+  def logProgress(chunk: Chunk, length: Int) {
+    downloadedBytes += chunk.length
     print("\r")
-    print(s"Downloading $fileName: " + s"%1.00f".format((downloaded.toFloat / length) * 100) + "%")
+    print(s"Downloading $fileName: " + s"%1.00f".format((downloadedBytes.toFloat / length) * 100) + "%")
   }
 
   def download() = {
