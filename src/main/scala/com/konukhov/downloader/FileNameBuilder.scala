@@ -4,25 +4,26 @@ import java.io.File
 import java.net.URLDecoder
 import scala.annotation.tailrec
 
-class FileNameBuilder(url: String) {
+case class NameWithCounter(name: String, counter: Int = 0) {
+  def next = NameWithCounter(name, counter + 1)
 
-  case class NameWithCounter(name: String, counter: Int = 0) {
-    def tryNext = NameWithCounter(name, counter + 1)
-
-    override def toString = counter match {
-      case 0 => name
-      case _ => asStringWithCounter
-    }
-
-    private[this] def asStringWithCounter = {
-      val namePattern = """^(.+?)(\.[A-Za-z]+)?$""".r
-      val findName    = namePattern findFirstMatchIn name
-
-      findName map { m => 
-        m.group(1) + s" ($counter)" + m.group(2)
-      } getOrElse name
-    }
+  override def toString = counter match {
+    case 0 => name
+    case _ => asStringWithCounter
   }
+
+  private[this] def asStringWithCounter = {
+    val namePattern = """^(.+?)(\.[A-Za-z]+)?$""".r
+    val findName    = namePattern findFirstMatchIn name
+
+    findName map { m => 
+      m.group(1) + s" ($counter)" + m.group(2)
+    } getOrElse name
+  }
+}
+
+
+class FileNameBuilder(url: String) {
 
   private[this] lazy val genericFileName = {
     NameWithCounter(URLDecoder.decode(url.split("/").last, "UTF-8"))
@@ -31,10 +32,14 @@ class FileNameBuilder(url: String) {
   lazy val fileName     = setFileName(genericFileName)
   lazy val tempfileName = setTempfileName
 
+  def fileExists(name: NameWithCounter): Boolean = {
+    new File(s"./downloads/$name").exists
+  }
+
   @tailrec 
   private[this] def setFileName(name: NameWithCounter): String = {
-    if (new File(s"./downloads/$name").exists) {
-      setFileName(name.tryNext)
+    if (fileExists(name)) { 
+      setFileName(name.next) 
     } else {
       s"./downloads/$name"
     }

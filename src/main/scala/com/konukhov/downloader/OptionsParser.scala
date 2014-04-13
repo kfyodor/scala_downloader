@@ -6,7 +6,7 @@ package com.konukhov.downloader
 
 import scala.language.implicitConversions
 
-class OptionsParser(val args: List[String]) {
+class OptionsParser(args: List[String]) {
   
   def parse(): Map[String, Object] = {
     args match {
