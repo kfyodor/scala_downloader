@@ -1,15 +1,17 @@
-# downloader #
+# Scala Downloader #
+
+A simple file downloader (like wget) written in Scala. 
+
+I'm building this project only for learning purposes :flushed:
+
+## Next steps
++ Tests
++ Resume downloads
++ Download rate limit [not sure yet]
++ Akka actors for multiple file downloads
 
 ## Build & run ##
 
-```sh
-$ cd downloader
-$ chmod u+x sbt
-$ ./sbt
-> +run
 ```
-
-## Contact ##
-
-- Theodore Konukhov
-- <a href="john.doe@example.com">john.doe@example.com</a>
+sbt "~ run http://file.url"
+```
