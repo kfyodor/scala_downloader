@@ -6,8 +6,11 @@ package com.konukhov.downloader
 
 import scala.language.implicitConversions
 
+case class WrongArgs(msg: String)         extends Exception
+case class WrongOptionFormat(msg: String) extends Exception
+case class WrongFileUrl(msg: String)      extends Exception
+
 class OptionsParser(args: List[String]) {
-  
   def parse(): Map[String, Object] = {
     args match {
       case x :: xs => parseFileUrl(x) ++ parseOptions(xs)
@@ -16,7 +19,7 @@ class OptionsParser(args: List[String]) {
     }
   }
 
-  def parseFileUrl(url: String) = Map("fileUrl" -> url)
+  def parseFileUrl(url: String) = Map("fileUrl" -> FileUrl(url))
 
   def parseOptions(options: List[String]) = {
     options.foldLeft(Map[String, Object]()){ (out, option) =>
@@ -35,6 +38,3 @@ object OptionsParser {
     new OptionsParser(args).parse
   }
 }
-
-case class WrongArgs(msg: String)         extends Exception
-case class WrongOptionFormat(msg: String) extends Exception

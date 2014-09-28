@@ -22,7 +22,6 @@ case class NameWithCounter(name: String, counter: Int = 0) {
   }
 }
 
-
 class FileNameBuilder(url: String) {
 
   private[this] lazy val genericFileName = {

@@ -1,6 +1,5 @@
 package com.konukhov.downloader
 
-import java.io.File
 import org.scalatest._
 import org.scalamock.scalatest.MockFactory
 

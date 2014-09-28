@@ -1,9 +1,8 @@
 package com.konukhov.downloader
 
-object ProgressLogger {
-  // def log(downloaded: Downloaded) {
-  //   downloadedBytes += chunk.length
-  //   print(s"Downloading $fileName: " + s"%1.00f".format((downloadedBytes.toFloat / length) * 100) + "%")
-  //   print("\r")
-  // }
+trait Progress {
+  def logProgress(fileName: String, downloaded: Int, length: Int) {
+    print("\r")
+    print(s"Downloading $fileName: " + s"%1.00f".format((downloaded.toFloat / length) * 100) + "%")
+  }
 }

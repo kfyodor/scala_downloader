@@ -1,25 +1,13 @@
 package com.konukhov.downloader
 
-import java.io.{ File, FileOutputStream, InputStream }
-import java.net.URL
-import scala.language.implicitConversions
+import java.io.{ File, InputStream }
 
-// TODO: handle exceptions and stuff
-// TODO: use Option[_] type
-
-class Downloader(val options: Map[String, Object]) {
-  implicit def strToFile(s: String) = new File(s)
-  case class Chunk(length: Int, bytes: Array[Byte])
-
-  var downloadedBytes = 0
-  val fileUrl = options("fileUrl").asInstanceOf[String]
-
-  private[this] 
-  val nameBuilder = FileNameBuilder.fromUrlString(fileUrl)
-
-  val fileName     = nameBuilder.fileName
-  val tempfileName = nameBuilder.tempfileName
-  val tempfile     = new FileOutputStream(tempfileName)
+class Downloader(val options: Map[String, Object]) extends Runnable {
+  val fileUrl  = options("fileUrl").asInstanceOf[FileUrl]
+  val nameBuilder = FileNameBuilder.fromUrlString(fileUrl.asString)
+  val fileName = nameBuilder.fileName
+  val conn     = Connection(fileUrl)
+  val tempfile = Tempfile(nameBuilder.tempfileName)
 
   def byteStream(input: InputStream): Stream[Chunk] = {
     val bytes  = Array.fill[Byte](1024)(0)  
@@ -27,31 +15,39 @@ class Downloader(val options: Map[String, Object]) {
     Chunk(length, bytes) #:: byteStream(input)
   }
 
-  def readBytes(input: InputStream)(func: Chunk => Unit) {
-    byteStream(input) takeWhile { chunk => chunk.length > 0 } foreach func
-  }
-
-  // Move to log class or trait
-  def logProgress(chunk: Chunk, length: Int) {
-    downloadedBytes += chunk.length
-    print("\r")
-    print(s"Downloading $fileName: " + s"%1.00f".format((downloadedBytes.toFloat / length) * 100) + "%")
-  }
-
-  def download() = {
-    val conn   = new URL(fileUrl).openConnection
-    val length = conn.getContentLength
-    val in     = conn.getInputStream
-    
-    try {
-      readBytes(in) { chunk => 
-        logProgress(chunk, length)
-        tempfile write chunk.bytes 
+  def readBytes(func: (Int, Chunk) => Int) {
+    byteStream(conn.inputStream)
+      .takeWhile { chunk => chunk.length > 0 }
+      .foldLeft(0) { (downloaded, chunk) =>
+        func(downloaded, chunk)
       }
-      tempfileName renameTo fileName
+  }
+
+  def writeChunk(downloaded: Int, chunk: Chunk): Int = {
+    tempfile write chunk.bytes 
+    downloaded + chunk.length
+  }
+
+  def run {
+    try {
+      readBytes(writeChunk)
+      tempfile.swap(fileName)
     } finally {
-      in.close
+      conn.close
       tempfile.close
     }
+  }
+}
+
+class DownloaderWithProgress(options: Map[String, Object]) extends Downloader(options) with Progress {
+  override def writeChunk(downloaded: Int, chunk: Chunk) = {
+    logProgress(fileName, downloaded + chunk.length, conn.contentLength)
+    super.writeChunk(downloaded, chunk)
+  }
+}
+
+object Downloader {
+  def apply(options: Map[String, Object]): Downloader = {
+    new DownloaderWithProgress(options)
   }
 }
